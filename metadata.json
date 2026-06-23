@@ -1,0 +1,6 @@
+{
+  "name": "AI Voice Chat",
+  "description": "تطبيق محادثة صوتية تفاعلية مع الذكاء الاصطناعي مع تحويل الكلام إلى نص وبث الاستجابات صوتياً",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
