@@ -1,6 +1,7 @@
 package com.example.ui
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.BuildConfig
@@ -14,6 +15,8 @@ class VoiceChatViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val db = AppDatabase.getDatabase(application)
     private val dao = db.voiceMessageDao()
+
+    private val prefs = application.getSharedPreferences("voice_chat_settings", Context.MODE_PRIVATE)
 
     val messages: StateFlow<List<VoiceMessage>> = dao.getAllMessages()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -41,17 +44,44 @@ class VoiceChatViewModel(application: Application) : AndroidViewModel(applicatio
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
+    private val _customApiKey = MutableStateFlow("")
+    val customApiKey: StateFlow<String> = _customApiKey
+
+    private val _selectedModel = MutableStateFlow("gemini-3.5-flash")
+    val selectedModel: StateFlow<String> = _selectedModel
+
     private val _isApiKeyValid = MutableStateFlow(true)
     val isApiKeyValid: StateFlow<Boolean> = _isApiKeyValid
 
     init {
+        loadSettings()
         checkApiKey()
         initVoiceManager()
     }
 
+    private fun loadSettings() {
+        _customApiKey.value = prefs.getString("custom_api_key", "") ?: ""
+        _selectedModel.value = prefs.getString("selected_model", "gemini-3.5-flash") ?: "gemini-3.5-flash"
+    }
+
+    fun saveSettings(apiKey: String, model: String) {
+        prefs.edit().apply {
+            putString("custom_api_key", apiKey.trim())
+            putString("selected_model", model)
+            apply()
+        }
+        _customApiKey.value = apiKey.trim()
+        _selectedModel.value = model
+        checkApiKey()
+    }
+
     private fun checkApiKey() {
-        val key = BuildConfig.GEMINI_API_KEY
-        _isApiKeyValid.value = key.isNotEmpty() && key != "MY_GEMINI_API_KEY"
+        val activeKey = getActiveApiKey()
+        _isApiKeyValid.value = activeKey.isNotEmpty() && activeKey != "MY_GEMINI_API_KEY"
+    }
+
+    private fun getActiveApiKey(): String {
+        return _customApiKey.value.ifEmpty { BuildConfig.GEMINI_API_KEY }
     }
 
     private fun initVoiceManager() {
@@ -84,8 +114,8 @@ class VoiceChatViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun toggleListening() {
-        if (!_isApiKeyValid.value) {
-            _errorMessage.value = "الرجاء تكوين مفتاح API الخاص بـ Gemini أولاً في لوحة الأسرار (Secrets)."
+        if (!isApiKeyValid.value) {
+            _errorMessage.value = "الرجاء تكوين مفتاح API الخاص بـ Gemini أولاً في الإعدادات أو لوحة الأسرار (Secrets)."
             return
         }
         _errorMessage.value = null
@@ -164,7 +194,8 @@ class VoiceChatViewModel(application: Application) : AndroidViewModel(applicatio
 
                 val response = withContext(Dispatchers.IO) {
                     RetrofitClient.service.generateContent(
-                        apiKey = BuildConfig.GEMINI_API_KEY,
+                        model = _selectedModel.value,
+                        apiKey = getActiveApiKey(),
                         request = request
                     )
                 }

@@ -36,6 +36,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.VoiceMessage
@@ -60,6 +62,10 @@ fun VoiceChatScreen(
     val speechRate by viewModel.speechRate.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     val isApiKeyValid by viewModel.isApiKeyValid.collectAsState()
+    val customApiKey by viewModel.customApiKey.collectAsState()
+    val selectedModel by viewModel.selectedModel.collectAsState()
+
+    var showSettingsDialog by remember { mutableStateOf(false) }
 
     // Scroll state for conversation thread
     val listState = rememberLazyListState()
@@ -111,6 +117,16 @@ fun VoiceChatScreen(
                     }
                 },
                 actions = {
+                    IconButton(
+                        onClick = { showSettingsDialog = true },
+                        modifier = Modifier.testTag("settings_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = if (language == "ar") "الإعدادات" else "Settings",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
                     if (messages.isNotEmpty()) {
                         IconButton(
                             onClick = { viewModel.clearHistory() },
@@ -499,6 +515,195 @@ fun VoiceChatScreen(
             }
         }
     }
+
+    if (showSettingsDialog) {
+        SettingsDialog(
+            customApiKey = customApiKey,
+            selectedModel = selectedModel,
+            language = language,
+            onDismiss = { showSettingsDialog = false },
+            onSave = { apiKey, model ->
+                viewModel.saveSettings(apiKey, model)
+                showSettingsDialog = false
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsDialog(
+    customApiKey: String,
+    selectedModel: String,
+    language: String,
+    onDismiss: () -> Unit,
+    onSave: (String, String) -> Unit
+) {
+    var tempApiKey by remember { mutableStateOf(customApiKey) }
+    var tempModel by remember { mutableStateOf(selectedModel) }
+    var isApiKeyVisible by remember { mutableStateOf(false) }
+
+    val models = listOf(
+        Triple("gemini-3.5-flash", "Gemini 3.5 Flash", if (language == "ar") "الأسرع والأفضل للمحادثات الصوتية اليومية" else "Fastest and best for everyday voice chat"),
+        Triple("gemini-3.1-flash-lite", "Gemini 3.1 Flash-Lite", if (language == "ar") "نسخة مخففة للاستجابات السريعة والقصيرة" else "Lightweight version for fast, short responses"),
+        Triple("gemini-3.1-pro-preview", "Gemini 3.1 Pro", if (language == "ar") "الأقوى والأذكى للمهام والأسئلة المعقدة" else "Advanced reasoning for complex questions")
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = if (language == "ar") "إعدادات المساعد الذكي" else "Smart Assistant Settings",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // API Key input
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = if (language == "ar") "مفتاح API الخاص بـ Gemini:" else "Gemini API Key:",
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    OutlinedTextField(
+                        value = tempApiKey,
+                        onValueChange = { tempApiKey = it },
+                        modifier = Modifier.fillMaxWidth().testTag("api_key_input"),
+                        placeholder = {
+                            Text(
+                                text = if (language == "ar") "أدخل مفتاح API الخاص بك (اختياري)" else "Enter your API Key (Optional)",
+                                fontSize = 12.sp
+                            )
+                        },
+                        singleLine = true,
+                        visualTransformation = if (isApiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { isApiKeyVisible = !isApiKeyVisible }) {
+                                Icon(
+                                    imageVector = if (isApiKeyVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                    contentDescription = if (isApiKeyVisible) "Hide" else "Show"
+                                )
+                            }
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Text(
+                        text = if (language == "ar") {
+                            "إذا تُرك فارغاً، سيتم استخدام المفتاح المدمج تلقائياً."
+                        } else {
+                            "If left empty, the built-in key will be used automatically."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 11.sp
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                // Model Selection List
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = if (language == "ar") "نموذج الذكاء الاصطناعي:" else "AI Model:",
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    models.forEach { (modelId, modelName, description) ->
+                        val isSelected = tempModel == modelId
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isSelected) {
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                                } else {
+                                    MaterialTheme.colorScheme.surface
+                                }
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { tempModel = modelId }
+                                .border(
+                                    width = if (isSelected) 1.5.dp else 1.dp,
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = { tempModel = modelId },
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = MaterialTheme.colorScheme.primary
+                                    )
+                                )
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = modelName,
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        text = description,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(tempApiKey, tempModel) },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text(text = if (language == "ar") "حفظ التغييرات" else "Save Changes")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = if (language == "ar") "إلغاء" else "Cancel")
+            }
+        },
+        shape = RoundedCornerShape(24.dp)
+    )
 }
 
 @Composable
