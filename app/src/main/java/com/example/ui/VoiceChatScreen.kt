@@ -540,13 +540,25 @@ fun SettingsDialog(
     onSave: (String, String) -> Unit
 ) {
     var tempApiKey by remember { mutableStateOf(customApiKey) }
-    var tempModel by remember { mutableStateOf(selectedModel) }
     var isApiKeyVisible by remember { mutableStateOf(false) }
 
+    val predefinedModelIds = listOf(
+        "gemini-3.1-flash-live-preview",
+        "gemini-2.5-flash",
+        "gemini-2.0-flash-exp",
+        "gemini-2.0-flash"
+    )
+
+    val isCustomInitially = selectedModel !in predefinedModelIds
+    var tempModel by remember { mutableStateOf(if (isCustomInitially) "custom" else selectedModel) }
+    var customModelText by remember { mutableStateOf(if (isCustomInitially) selectedModel else "") }
+
     val models = listOf(
-        Triple("gemini-3.5-flash", "Gemini 3.5 Flash", if (language == "ar") "الأسرع والأفضل للمحادثات الصوتية اليومية" else "Fastest and best for everyday voice chat"),
-        Triple("gemini-3.1-flash-lite", "Gemini 3.1 Flash-Lite", if (language == "ar") "نسخة مخففة للاستجابات السريعة والقصيرة" else "Lightweight version for fast, short responses"),
-        Triple("gemini-3.1-pro-preview", "Gemini 3.1 Pro", if (language == "ar") "الأقوى والأذكى للمهام والأسئلة المعقدة" else "Advanced reasoning for complex questions")
+        Triple("gemini-3.1-flash-live-preview", "Gemini 3.1 Flash Live", if (language == "ar") "النموذج الرسمي الأحدث للبث الصوتي والذكاء في الوقت الفعلي" else "Official modern model for real-time live voice and intelligent response"),
+        Triple("gemini-2.5-flash", "Gemini 2.5 Flash", if (language == "ar") "أحدث نماذج جيل 2.5 فائقة السرعة للمحادثة والذكاء" else "Latest generation 2.5 model, ultra-fast and intelligent"),
+        Triple("gemini-2.0-flash-exp", "Gemini 2.0 Flash Live (Exp)", if (language == "ar") "النموذج التجريبي السريع المخصص للبث المباشر (Live API)" else "Experimental high-speed live audio streaming model (Live API)"),
+        Triple("gemini-2.0-flash", "Gemini 2.0 Flash", if (language == "ar") "النموذج القياسي عالي السرعة للاستجابات الفورية" else "Standard fast model for immediate responses"),
+        Triple("custom", if (language == "ar") "نموذج مخصص..." else "Custom Model...", if (language == "ar") "اكتب اسم أي نموذج مخصص آخر تريده" else "Type any other custom model name you want")
     )
 
     AlertDialog(
@@ -626,7 +638,7 @@ fun SettingsDialog(
                 // Model Selection List
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
-                        text = if (language == "ar") "نموذج الذكاء الاصطناعي:" else "AI Model:",
+                        text = if (language == "ar") "نموذج الذكاء الاصطناعي (Gemini Live):" else "AI Model (Gemini Live):",
                         fontWeight = FontWeight.SemiBold,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
@@ -685,12 +697,39 @@ fun SettingsDialog(
                             }
                         }
                     }
+
+                    // Show custom model text field if "custom" is selected
+                    if (tempModel == "custom") {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = customModelText,
+                            onValueChange = { customModelText = it },
+                            modifier = Modifier.fillMaxWidth().testTag("custom_model_input"),
+                            label = {
+                                Text(
+                                    text = if (language == "ar") "اسم النموذج المخصص (مثال: gemini-2.0-flash)" else "Custom Model Name (e.g. gemini-2.0-flash)",
+                                    fontSize = 12.sp
+                                )
+                            },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    }
                 }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onSave(tempApiKey, tempModel) },
+                onClick = {
+                    val finalModel = if (tempModel == "custom") customModelText.trim() else tempModel
+                    if (finalModel.isNotEmpty()) {
+                        onSave(tempApiKey, finalModel)
+                    }
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                 shape = RoundedCornerShape(10.dp)
             ) {

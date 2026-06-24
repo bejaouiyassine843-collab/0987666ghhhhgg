@@ -47,7 +47,7 @@ class VoiceChatViewModel(application: Application) : AndroidViewModel(applicatio
     private val _customApiKey = MutableStateFlow("")
     val customApiKey: StateFlow<String> = _customApiKey
 
-    private val _selectedModel = MutableStateFlow("gemini-3.5-flash")
+    private val _selectedModel = MutableStateFlow("gemini-3.1-flash-live-preview")
     val selectedModel: StateFlow<String> = _selectedModel
 
     private val _isApiKeyValid = MutableStateFlow(true)
@@ -61,7 +61,7 @@ class VoiceChatViewModel(application: Application) : AndroidViewModel(applicatio
 
     private fun loadSettings() {
         _customApiKey.value = prefs.getString("custom_api_key", "") ?: ""
-        _selectedModel.value = prefs.getString("selected_model", "gemini-3.5-flash") ?: "gemini-3.5-flash"
+        _selectedModel.value = prefs.getString("selected_model", "gemini-3.1-flash-live-preview") ?: "gemini-3.1-flash-live-preview"
     }
 
     fun saveSettings(apiKey: String, model: String) {
